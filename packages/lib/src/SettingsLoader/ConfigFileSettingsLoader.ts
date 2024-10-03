@@ -58,8 +58,8 @@ export class ConfigFileSettingsLoader extends SettingsLoader {
 			}
 
 			return result;
-		} catch {
-			return {};
+		} catch (e) {
+			throw new Error(`Error while loading ${this.configPath}\n${e}`);
 		}
 	}
 }
