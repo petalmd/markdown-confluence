@@ -13,6 +13,7 @@ import { ensureAllFilesExistInConfluence } from "./TreeConfluence";
 import { createFolderStructure as createLocalAdfTree } from "./TreeLocal";
 import { LoaderAdaptor, RequiredConfluenceClient } from "./adaptors";
 import { isEqual } from "./isEqual";
+import { ContentRestriction } from "./Settings";
 
 export interface LocalAdfFileTreeNode {
 	name: string;
@@ -90,6 +91,7 @@ export interface UploadAdfFileResult {
 	contentResult: "same" | "updated";
 	imageResult: "same" | "updated";
 	labelResult: "same" | "updated";
+	restrictionsResult: "same" | "updated";
 }
 
 export class Publisher {
@@ -98,6 +100,7 @@ export class Publisher {
 	private myAccountId: string | undefined;
 	private settingsLoader: SettingsLoader;
 	private adfProcessingPlugins: ADFProcessingPlugin<unknown, unknown>[];
+	private restrictions: ContentRestriction[];
 
 	constructor(
 		adaptor: LoaderAdaptor,
@@ -107,6 +110,7 @@ export class Publisher {
 	) {
 		this.adaptor = adaptor;
 		this.settingsLoader = settingsLoader;
+		this.restrictions = [];
 
 		this.confluenceClient = confluenceClient;
 		this.adfProcessingPlugins = adfProcessingPlugins.concat(
@@ -121,6 +125,15 @@ export class Publisher {
 			const currentUser =
 				await this.confluenceClient.users.getCurrentUser();
 			this.myAccountId = currentUser.accountId;
+		}
+
+		this.restrictions = settings.defaultRestrictions;
+		for (const restriction of this.restrictions) {
+			for (const user of restriction.restrictions.user) {
+				if (user.accountId == "@atlassianUserName") {
+					user.accountId = this.myAccountId;
+				}
+			}
 		}
 
 		const parentPage = await this.confluenceClient.content.getContentById({
@@ -213,6 +226,7 @@ export class Publisher {
 			contentResult: "same",
 			imageResult: "same",
 			labelResult: "same",
+			restrictionsResult: "same",
 		};
 
 		const currentUploadedAttachments =
@@ -326,6 +340,12 @@ export class Publisher {
 			);
 		}
 
+		// Restriction support
+		result.restrictionsResult = await this.updateRestrictions(
+			adfFile.pageId,
+		);
+
+		// Labels support
 		const getLabelsForContent = {
 			id: adfFile.pageId,
 		};
@@ -369,5 +389,54 @@ export class Publisher {
 		}
 
 		return result;
+	}
+
+	/**
+	 * Update the restrictions on the specified page
+	 * @param pageId the page we are targeting
+	 * @returns "updated" if the restrictions were updated
+	 */
+	private async updateRestrictions(
+		pageId: string,
+	): Promise<"same" | "updated"> {
+		// administer, copy, create, delete, export, move, purge, purge_version, read, restore, update, use
+
+		if (!this.restrictions) {
+			// TODO remove the current restrictions?
+			return "same";
+		}
+
+		const contentRestriction = {
+			id: pageId,
+			body: this.restrictions,
+		};
+		// 	{
+		// 		operation: "read",
+		// 		restrictions: {
+		// 			user: [],
+		// 			group: [],
+		// 		},
+		// 	},
+		// 	{
+		// 		operation: "update",
+		// 		restrictions: {
+		// 			user: [
+		// 				{
+		// 					type: "known",
+		// 					accountId: this.myAccountId!,
+		// 				},
+		// 			],
+		// 			group: [],
+		// 		},
+		// 	},
+		// ],
+
+		// else remove those that are there at the moment
+
+		await this.confluenceClient.contentRestrictions.updateRestrictions(
+			contentRestriction,
+		);
+
+		return "updated";
 	}
 }

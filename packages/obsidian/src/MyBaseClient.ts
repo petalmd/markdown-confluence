@@ -216,5 +216,6 @@ export class ObsidianConfluenceClient
 	space = new Api.Space(this);
 	contentAttachments = new Api.ContentAttachments(this);
 	contentLabels = new Api.ContentLabels(this);
+	contentRestrictions = new Api.ContentRestrictions(this);
 	users = new Api.Users(this);
 }
