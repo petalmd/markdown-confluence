@@ -38,6 +38,7 @@ export interface RequiredConfluenceClient {
 	space: Api.Space;
 	contentAttachments: Api.ContentAttachments;
 	contentLabels: Api.ContentLabels;
+	contentRestrictions: Api.ContentRestrictions;
 	users: Api.Users;
 }
 
